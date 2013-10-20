@@ -279,7 +279,7 @@ Validator.prototype.initialize = function(attrs, types) {
 
   // add custom type definitions to anchor
   types = types || {};
-  anchor.define(types);
+  modul.exports.define(types);
 
   var validations = this.validations;
   for(var attr in attrs) {
@@ -330,7 +330,7 @@ Validator.prototype.validate = function(values, presentOnly, cb) {
     var curValidation = self.validations[validation];
 
     // Build Requirements
-    var requirements = anchor(curValidation);
+    var requirements = module.exports(curValidation);
 
     // Grab value and set to null if undefined
     var value = values[validation];
@@ -351,7 +351,7 @@ Validator.prototype.validate = function(values, presentOnly, cb) {
     }
 
     // Validate with Anchor
-    var err = anchor(value).to(requirements.data);
+    var err = modul.exports(value).to(requirements.data);
 
     // If No Error return
     if(!err) return cb();
