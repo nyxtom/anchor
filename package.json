@@ -13,7 +13,7 @@
     "type": "git",
     "url": "git://github.com/nyxtom/anchor.git"
   },
-  "author": "Mike McNeil",
+  "author": "Mike McNeil / nyxtom",
   "license": "MIT",
   "readmeFilename": "README.md",
   "dependencies": {
