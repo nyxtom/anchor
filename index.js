@@ -4,8 +4,8 @@
 
 var util = require('lodash');
 var sanitize = require('validator').sanitize;
-
-
+var _ = require('underscore')._;
+var async = require('async');
 
 
 /**
@@ -15,9 +15,6 @@ var sanitize = require('validator').sanitize;
 module.exports = function (entity) {
 	return new Anchor(entity);
 };
-
-
-
 
 
 /**
@@ -36,17 +33,11 @@ function Anchor (entity) {
 }
 
 
-
-
-
 /**
  * Built-in data type rules
  */
 
 Anchor.prototype.rules = require('./lib/rules');
-
-
-
 
 
 /**
@@ -86,10 +77,8 @@ Anchor.prototype.to = function (ruleset) {
 	else return false;
 
 };
+
 Anchor.prototype.hasErrors = Anchor.prototype.to;
-
-
-
 
 
 /**
@@ -129,8 +118,6 @@ Anchor.prototype.cast = function (ruleset) {
 };
 
 
-
-
 /**
  * Coerce the data to the specified ruleset no matter what
  */
@@ -160,9 +147,6 @@ Anchor.prototype.hurl = function (ruleset) {
 };
 
 
-
-
-
 /**
  * Specify default values to automatically populated when undefined
  */
@@ -170,9 +154,6 @@ Anchor.prototype.hurl = function (ruleset) {
 Anchor.prototype.defaults = function (ruleset) {
 	todo();
 };
-
-
-
 
 
 /**
@@ -217,9 +198,6 @@ Anchor.prototype.define = function (name, definition) {
 };
 
 
-
-
-
 /**
  * Specify custom ruleset
  */
@@ -229,8 +207,6 @@ Anchor.prototype.as = function (ruleset) {
 };
 
 
-
-
 /**
  * Specify named arguments and their rulesets as an object
  */
@@ -238,8 +214,6 @@ Anchor.prototype.as = function (ruleset) {
 Anchor.prototype.args = function (args) {
 	todo();
 };
-
-
 
 
 /**
@@ -252,16 +226,11 @@ Anchor.prototype.usage = function () {
 };
 
 
-
-
 /**
  * Deep-match a complex collection or model against a schema
  */
 
 Anchor.match = require('./lib/match.js');
-
-
-
 
 
 /**
@@ -270,10 +239,133 @@ Anchor.match = require('./lib/match.js');
 
 module.exports.define = Anchor.prototype.define;
 
+/**
+ * Handles validation on a model
+ */
 
+var Validator = function () {
+  this.validations = {};
+};
 
+/**
+ * Builds a Validation Object from a normalized attributes
+ * object.
+ *
+ * Loops through an attributes object to build a validation object
+ * containing attribute name as key and a series of validations that
+ * are run on each model. Skips over type and defaultsTo as they are
+ * schema properties.
+ *
+ * Example:
+ *
+ * attributes: {
+ *   name: {
+ *     type: 'string',
+ *     length: { min: 2, max: 5 }
+ *   }
+ *   email: {
+ *     type: 'string',
+ *     required: true
+ *   }
+ * }
+ *
+ * Returns: {
+ *   name: { length: { min:2, max: 5 }},
+ *   email: { required: true }
+ * }
+ */
 
+Validator.prototype.initialize = function(attrs, types) {
 
-function todo() {
-	throw new Error('Not implemented yet! If you\'d like to contribute, tweet @mikermcneil.');
-}
+  // add custom type definitions to anchor
+  types = types || {};
+  anchor.define(types);
+
+  var validations = this.validations;
+  for(var attr in attrs) {
+    var validation = validations[attr] = {};
+    var attrsVal = attrs[attr];
+
+    for(var prop in attrsVal) {
+      if(/^(defaultsTo|primaryKey|autoIncrement|unique|index|columnName)$/.test(prop)) continue;
+
+      // use the Anchor `in` method for enums
+      if(prop === 'enum') {
+        validation['in'] = attrsVal[prop];
+      }
+      else {
+        validation[prop] = attrsVal[prop];
+      }
+    }
+  }
+};
+
+/**
+ * Validate
+ *
+ * Accepts an object of values and runs them through the
+ * schema's validations using Anchor.
+ *
+ * @param {Object} values to check
+ * @param {Boolean} presentOnly only validate present values
+ * @param {Function} callback
+ * @return Array of errors
+ */
+
+Validator.prototype.validate = function(values, presentOnly, cb) {
+  var self = this,
+      errors = {},
+      validations = Object.keys(this.validations);
+
+  // Handle optional second arg
+  if(typeof presentOnly === 'function') {
+    cb = presentOnly;
+  }
+  // Use present values only or all validations
+  else if(presentOnly) {
+    validations = _.intersection(validations, Object.keys(values));
+  }
+
+  function validate(validation, cb) {
+    var curValidation = self.validations[validation];
+
+    // Build Requirements
+    var requirements = anchor(curValidation);
+
+    // Grab value and set to null if undefined
+    var value = values[validation];
+    if(typeof value == 'undefined') value = null;
+
+    // If value is not required and empty then don't
+    // try and validate it
+    if(!curValidation.required) {
+      if(value === null || value === '') return cb();
+    }
+
+    // Ignore Text type validation
+    if(curValidation.type === 'text') return cb();
+
+    // If Boolean and required manually check
+    if(curValidation.required && curValidation.type === 'boolean') {
+      if(value.toString() == 'true' || value.toString() == 'false') return cb();
+    }
+
+    // Validate with Anchor
+    var err = anchor(value).to(requirements.data);
+
+    // If No Error return
+    if(!err) return cb();
+
+    errors[validation] = err;
+    return cb();
+  }
+
+  // Validate all validations in parallell
+  async.each(validations, validate, function() {
+    if(Object.keys(errors).length === 0) return cb();
+    cb({ 'ValidationError': errors });
+  });
+
+};
+
+module.exports.Validator = Validator;
