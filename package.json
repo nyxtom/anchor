@@ -1,7 +1,7 @@
 {
-  "name": "anchor",
-  "version": "0.9.5",
-  "description": "Recursive validation library with support for objects and lists",
+  "name": "anchor-validator",
+  "version": "0.9.6",
+  "description": "Combination of waterline validation and Mike's Recursive validation library with support for objects and lists",
   "main": "index.js",
   "directories": {
     "test": "test"
@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/balderdashy/anchor.git"
+    "url": "git://github.com/nyxtom/anchor.git"
   },
   "author": "Mike McNeil",
   "license": "MIT",
